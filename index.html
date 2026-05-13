@@ -550,8 +550,8 @@ function applyFilters(){
   const end = document.getElementById('end-date').value;
   const officer = document.getElementById('co-filter').value;
 
-  const startDate = start ? new Date(start) : null;
-  const endDate = end ? new Date(end + 'T23:59:59') : null;
+  const startDate = start ? new Date(start + 'T00:00:00') : null;
+  const endDate = end ? new Date(end + 'T23:59:59.999') : null;
 
   const summary = {};
 
@@ -596,8 +596,8 @@ function applyFilters(){
 
     const loanDt = new Date(loanDate);
 
-    if(startDate && loanDt < startDate) return;
-    if(endDate && loanDt > endDate) return;
+    if(startDate && loanDt.getTime() < startDate.getTime()) return;
+    if(endDate && loanDt.getTime() > endDate.getTime()) return;
 
     summary[officerName].loanCount += 1;
   });
@@ -606,11 +606,11 @@ function applyFilters(){
   RECEIPTS.forEach(receipt=>{
 
     const receiptDate = receipt?.item?.date
-      ? new Date(receipt.item.date)
-      : null;
+  ? new Date(receipt.item.date)
+  : null;
 
-    if(startDate && receiptDate && receiptDate < startDate) return;
-    if(endDate && receiptDate && receiptDate > endDate) return;
+  if(startDate && receiptDate && receiptDate.getTime() < startDate.getTime()) return;
+  if(endDate && receiptDate && receiptDate.getTime() > endDate.getTime()) return;
 
     const customerKey = receipt?.item?.customer;
     const customerName = CUSTOMER_MAP[customerKey] || 'Unknown Customer';
