@@ -186,7 +186,7 @@
   table{
     width:100%;
     border-collapse:collapse;
-    min-width:900px;
+    min-width:1000px;
   }
 
   thead{
@@ -198,6 +198,7 @@
     border-bottom:1px solid #30363d;
     text-align:left;
     font-size:13px;
+    vertical-align:top;
   }
 
   th{
@@ -232,13 +233,19 @@
     display:flex;
     justify-content:space-between;
     gap:10px;
-    padding:6px 0;
+    padding:8px 0;
     border-bottom:1px solid #222;
     font-size:12px;
   }
 
   .receipt-line:last-child{
     border-bottom:none;
+  }
+
+  .receipt-meta{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
   }
 
   .empty{
@@ -248,6 +255,7 @@
   }
 
   @media(max-width:768px){
+
     .field input,
     .field select{
       min-width:100%;
@@ -307,7 +315,7 @@ function postMessageWithResponse(message) {
 }
 
 /* ══════════════════════════════════
-   getCustomerBatch
+   Customer batch pagination
 ══════════════════════════════════ */
 async function getCustomerBatch(onProgress) {
   const allItems = [];
@@ -316,6 +324,7 @@ async function getCustomerBatch(onProgress) {
   let apiTotal = null;
 
   do {
+
     const path = nextToken
       ? '/api4/customer-batch?PageSize=99999&next_page_token=' + encodeURIComponent(nextToken)
       : '/api4/customer-batch?PageSize=99999';
@@ -361,14 +370,16 @@ async function getCustomerBatch(onProgress) {
 }
 
 /* ══════════════════════════════════
-   Generic batch loader
+   Generic loader
 ══════════════════════════════════ */
-async function fetchAllPages(endpoint) {
+async function fetchAllPages(endpoint){
+
   const allItems = [];
   let nextToken = null;
   let pageNum = 0;
 
   do {
+
     const path = nextToken
       ? endpoint + '?PageSize=99999&next_page_token=' + encodeURIComponent(nextToken)
       : endpoint + '?PageSize=99999';
@@ -401,16 +412,16 @@ async function fetchAllPages(endpoint) {
 }
 
 /* ══════════════════════════════════
-   Global datasets
+   Globals
 ══════════════════════════════════ */
 let CUSTOMERS = [];
 let RECEIPTS = [];
 let JOURNALS = [];
-let BANKS = [];
 let DASHBOARD_DATA = [];
+let CUSTOMER_MAP = {};
 
 /* ══════════════════════════════════
-   Formatters
+   Helpers
 ══════════════════════════════════ */
 const fmtMoney = v =>
   '₦' + Number(v || 0).toLocaleString(undefined,{
@@ -424,9 +435,9 @@ const fmtDate = d => {
 };
 
 /* ══════════════════════════════════
-   Load all records
+   Load records
 ══════════════════════════════════ */
-async function loadAllRecords() {
+async function loadAllRecords(){
 
   const btn = document.getElementById('load-btn');
   const bar = document.getElementById('prog-bar');
@@ -436,34 +447,35 @@ async function loadAllRecords() {
   btn.disabled = true;
   btn.textContent = 'Loading…';
 
+  app.innerHTML = '';
   bar.style.width = '0%';
 
-  app.innerHTML = '';
-
-  try {
+  try{
 
     CUSTOMERS = await getCustomerBatch((loaded,total,page)=>{
+
       status.textContent = total
         ? `Customers Page ${page} · ${loaded.toLocaleString()} / ${total.toLocaleString()}`
         : `Customers Page ${page} · ${loaded.toLocaleString()} loaded`;
 
       if(total){
-        bar.style.width = Math.min(25,Math.round(loaded/total*25)) + '%';
+        bar.style.width = Math.min(30, Math.round(loaded/total*30)) + '%';
       }
     });
 
     status.textContent = 'Loading receipts...';
     RECEIPTS = await fetchAllPages('/api4/receipt-batch');
-    bar.style.width = '55%';
+    bar.style.width = '65%';
 
     status.textContent = 'Loading journal entries...';
     JOURNALS = await fetchAllPages('/api4/journal-entry-batch');
-    bar.style.width = '80%';
-
-    status.textContent = 'Loading bank and cash accounts...';
-    BANKS = await fetchAllPages('/api4/bank-or-cash-account-batch');
-
     bar.style.width = '100%';
+
+    CUSTOMER_MAP = {};
+
+    CUSTOMERS.forEach(c=>{
+      CUSTOMER_MAP[c?.key] = c?.item?.name || 'Unknown Customer';
+    });
 
     status.textContent =
       `✓ Customers: ${CUSTOMERS.length.toLocaleString()} | Receipts: ${RECEIPTS.length.toLocaleString()} | Journals: ${JOURNALS.length.toLocaleString()}`;
@@ -492,7 +504,7 @@ async function loadAllRecords() {
 /* ══════════════════════════════════
    Export CSV
 ══════════════════════════════════ */
-function exportCSV() {
+function exportCSV(){
 
   if(!DASHBOARD_DATA.length){
     alert('No data available');
@@ -506,7 +518,7 @@ function exportCSV() {
     'Total Receipts'
   ];
 
-  const rows = DASHBOARD_DATA.map(r => [
+  const rows = DASHBOARD_DATA.map(r=>[
     r.name,
     r.loanCount,
     r.receiptCount,
@@ -515,10 +527,10 @@ function exportCSV() {
 
   const csv = [
     headers.join(','),
-    ...rows.map(r => r.join(','))
+    ...rows.map(r=>r.join(','))
   ].join('\n');
 
-  const blob = new Blob([csv], {type:'text/csv'});
+  const blob = new Blob([csv],{type:'text/csv'});
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement('a');
@@ -530,9 +542,9 @@ function exportCSV() {
 }
 
 /* ══════════════════════════════════
-   Apply filters
+   Apply filters and calculate
 ══════════════════════════════════ */
-function applyFilters() {
+function applyFilters(){
 
   const start = document.getElementById('start-date').value;
   const end = document.getElementById('end-date').value;
@@ -541,25 +553,20 @@ function applyFilters() {
   const startDate = start ? new Date(start) : null;
   const endDate = end ? new Date(end + 'T23:59:59') : null;
 
-  const customerOfficerMap = {};
+  const summary = {};
 
-  CUSTOMERS.forEach(c => {
+  /* Build CO list from customers */
+  CUSTOMERS.forEach(customer=>{
 
-    const strings = c?.item?.customFields2?.strings || {};
+    const strings = customer?.item?.customFields2?.strings || {};
 
     const officerName =
       strings['50ca827c-17af-4164-bc29-453df6192f02'] ||
       'Unassigned';
 
-    customerOfficerMap[c?.key] = officerName;
-  });
-
-  const summary = {};
-
-  Object.values(customerOfficerMap).forEach(name => {
-    if(!summary[name]){
-      summary[name] = {
-        name,
+    if(!summary[officerName]){
+      summary[officerName] = {
+        name:officerName,
         loanCount:0,
         receiptAmount:0,
         receiptCount:0,
@@ -568,7 +575,10 @@ function applyFilters() {
     }
   });
 
-  CUSTOMERS.forEach(customer => {
+  /* LOAN DISBURSED
+     Using CUSTOMER LOAN DISBURSED DATE custom field
+  */
+  CUSTOMERS.forEach(customer=>{
 
     const strings = customer?.item?.customFields2?.strings || {};
 
@@ -578,20 +588,22 @@ function applyFilters() {
 
     if(officer && officer !== officerName) return;
 
-    const dateValue =
+    /* Loan disbursed date custom field */
+    const loanDate =
       customer?.item?.customFields2?.dates?.['2590d968-ad43-42ab-8f13-0f9adc53fed7'];
 
-    const dt = dateValue ? new Date(dateValue) : null;
+    if(!loanDate) return;
 
-    if(startDate && dt && dt < startDate) return;
-    if(endDate && dt && dt > endDate) return;
+    const loanDt = new Date(loanDate);
 
-    if(summary[officerName]){
-      summary[officerName].loanCount++;
-    }
+    if(startDate && loanDt < startDate) return;
+    if(endDate && loanDt > endDate) return;
+
+    summary[officerName].loanCount += 1;
   });
 
-  RECEIPTS.forEach(receipt => {
+  /* RECEIPTS */
+  RECEIPTS.forEach(receipt=>{
 
     const receiptDate = receipt?.item?.date
       ? new Date(receipt.item.date)
@@ -600,9 +612,12 @@ function applyFilters() {
     if(startDate && receiptDate && receiptDate < startDate) return;
     if(endDate && receiptDate && receiptDate > endDate) return;
 
+    const customerKey = receipt?.item?.customer;
+    const customerName = CUSTOMER_MAP[customerKey] || 'Unknown Customer';
+
     const lines = receipt?.item?.lines || [];
 
-    lines.forEach(line => {
+    lines.forEach(line=>{
 
       const strings = line?.customFields2?.strings || {};
 
@@ -629,7 +644,8 @@ function applyFilters() {
 
       summary[officerName].receipts.push({
         date: receipt?.item?.date,
-        reference: receipt?.item?.reference,
+        reference: receipt?.item?.reference || '-',
+        customerName,
         amount
       });
     });
@@ -642,13 +658,14 @@ function applyFilters() {
 }
 
 /* ══════════════════════════════════
-   Dashboard renderer
+   Dashboard
 ══════════════════════════════════ */
-function renderDashboard() {
+function renderDashboard(){
 
   const tableBody = document.getElementById('table-body');
 
   if(!DASHBOARD_DATA.length){
+
     tableBody.innerHTML = `
       <tr>
         <td colspan="5">
@@ -658,6 +675,7 @@ function renderDashboard() {
         </td>
       </tr>
     `;
+
     return;
   }
 
@@ -667,7 +685,7 @@ function renderDashboard() {
   const totalReceipts =
     DASHBOARD_DATA.reduce((a,b)=>a+b.receiptAmount,0);
 
-  const totalCollectionCount =
+  const totalReceiptCount =
     DASHBOARD_DATA.reduce((a,b)=>a+b.receiptCount,0);
 
   document.getElementById('loan-total').textContent =
@@ -677,13 +695,15 @@ function renderDashboard() {
     fmtMoney(totalReceipts);
 
   document.getElementById('receipt-count').textContent =
-    totalCollectionCount.toLocaleString();
+    totalReceiptCount.toLocaleString();
 
   document.getElementById('co-count').textContent =
     DASHBOARD_DATA.length.toLocaleString();
 
-  tableBody.innerHTML = DASHBOARD_DATA.map(row => `
+  tableBody.innerHTML = DASHBOARD_DATA.map(row=>`
+
     <tr>
+
       <td>
         <span class="badge">${row.name}</span>
       </td>
@@ -695,7 +715,9 @@ function renderDashboard() {
       <td>${fmtMoney(row.receiptAmount)}</td>
 
       <td>
+
         <details>
+
           <summary style="cursor:pointer;color:#58a6ff">
             View Breakdown (${row.receipts.length})
           </summary>
@@ -704,19 +726,31 @@ function renderDashboard() {
 
             ${
               row.receipts.length
-              ? row.receipts.map(r => `
+              ? row.receipts.map(r=>`
+
                 <div class="receipt-line">
-                  <span>${fmtDate(r.date)} | Ref: ${r.reference || '-'}</span>
+
+                  <div class="receipt-meta">
+                    <span><strong>Ref:</strong> ${r.reference}</span>
+                    <span>${r.customerName}</span>
+                  </div>
+
                   <strong>${fmtMoney(r.amount)}</strong>
+
                 </div>
+
               `).join('')
               : '<div style="color:#8b949e">No receipt breakdown</div>'
             }
 
           </div>
+
         </details>
+
       </td>
+
     </tr>
+
   `).join('');
 
   renderChart();
@@ -727,7 +761,7 @@ function renderDashboard() {
 ══════════════════════════════════ */
 let chartInstance = null;
 
-function renderChart() {
+function renderChart(){
 
   const ctx = document.getElementById('co-chart');
 
@@ -736,9 +770,12 @@ function renderChart() {
   }
 
   chartInstance = new Chart(ctx,{
+
     type:'bar',
+
     data:{
       labels:DASHBOARD_DATA.map(d=>d.name),
+
       datasets:[
         {
           label:'Receipt Amount',
@@ -746,15 +783,18 @@ function renderChart() {
           backgroundColor:'#58a6ff'
         },
         {
-          label:'Loans Disbursed',
+          label:'Loan Disbursed',
           data:DASHBOARD_DATA.map(d=>d.loanCount),
           backgroundColor:'#238636'
         }
       ]
     },
+
     options:{
+
       responsive:true,
       maintainAspectRatio:false,
+
       plugins:{
         legend:{
           labels:{
@@ -762,11 +802,14 @@ function renderChart() {
           }
         }
       },
+
       scales:{
+
         x:{
           ticks:{ color:'#e6edf3' },
           grid:{ color:'#30363d' }
         },
+
         y:{
           ticks:{ color:'#e6edf3' },
           grid:{ color:'#30363d' }
@@ -777,25 +820,29 @@ function renderChart() {
 }
 
 /* ══════════════════════════════════
-   Initial renderer
+   Initial render
 ══════════════════════════════════ */
-function render(items) {
+function render(items){
 
   const app = document.getElementById('app');
 
   if(!items || !items.length){
+
     app.innerHTML = `
       <div class="empty">
         No customer records available
       </div>
     `;
+
     return;
   }
 
   const officers = [...new Set(
-    items.map(c =>
+
+    items.map(c=>
       c?.item?.customFields2?.strings?.['50ca827c-17af-4164-bc29-453df6192f02']
     ).filter(Boolean)
+
   )].sort();
 
   app.innerHTML = `
@@ -816,11 +863,13 @@ function render(items) {
         <label>Credit Officer</label>
 
         <select id="co-filter">
+
           <option value="">All Credit Officers</option>
 
           ${officers.map(o=>`
             <option value="${o}">${o}</option>
           `).join('')}
+
         </select>
       </div>
 
@@ -875,6 +924,7 @@ function render(items) {
       <table>
 
         <thead>
+
           <tr>
             <th>Credit Officer</th>
             <th>Loan Disbursed</th>
@@ -882,6 +932,7 @@ function render(items) {
             <th>Total Receipt Amount</th>
             <th>Receipt Breakdown</th>
           </tr>
+
         </thead>
 
         <tbody id="table-body"></tbody>
