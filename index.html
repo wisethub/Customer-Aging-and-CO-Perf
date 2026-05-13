@@ -1,0 +1,1057 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Customer Aging & Credit Officer Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+
+  body {
+    font-family:system-ui,sans-serif;
+    background:#0d1117;
+    color:#e6edf3;
+    min-height:100vh;
+    padding:20px;
+  }
+
+  .ctrl-bar {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    padding:12px 16px;
+    margin-bottom:18px;
+    background:#161b22;
+    border:1px solid #30363d;
+    border-radius:10px;
+  }
+
+  .load-btn,
+  .run-btn,
+  .export-btn {
+    padding:10px 18px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13px;
+    font-weight:700;
+    transition:all .2s ease;
+  }
+
+  .load-btn {
+    background:#238636;
+    color:#fff;
+  }
+
+  .run-btn {
+    background:#1f6feb;
+    color:#fff;
+  }
+
+  .export-btn {
+    background:#8957e5;
+    color:#fff;
+  }
+
+  .load-btn:hover,
+  .run-btn:hover,
+  .export-btn:hover {
+    opacity:.92;
+  }
+
+  .load-btn:disabled {
+    opacity:.45;
+    cursor:not-allowed;
+  }
+
+  .prog-wrap {
+    flex:1;
+    min-width:100px;
+    height:5px;
+    background:#30363d;
+    border-radius:3px;
+    overflow:hidden;
+  }
+
+  .prog-bar {
+    height:100%;
+    width:0%;
+    background:#58a6ff;
+    border-radius:3px;
+    transition:width .25s;
+  }
+
+  .status-txt {
+    font-size:12px;
+    color:#8b949e;
+    white-space:nowrap;
+  }
+
+  .err-box {
+    color:#f85149;
+    background:#161b22;
+    border:1px solid #30363d;
+    border-radius:8px;
+    padding:12px 16px;
+    font-size:13px;
+    margin-bottom:16px;
+  }
+
+  .filters {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:12px;
+    margin-bottom:20px;
+  }
+
+  .filter-card,
+  .card {
+    background:#161b22;
+    border:1px solid #30363d;
+    border-radius:14px;
+    padding:16px;
+  }
+
+  label {
+    display:block;
+    margin-bottom:6px;
+    color:#8b949e;
+    font-size:12px;
+    font-weight:600;
+  }
+
+  input,
+  select {
+    width:100%;
+    background:#0d1117;
+    border:1px solid #30363d;
+    color:#e6edf3;
+    border-radius:8px;
+    padding:10px;
+    outline:none;
+  }
+
+  .summary-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:16px;
+    margin-bottom:20px;
+  }
+
+  .metric-title {
+    font-size:12px;
+    color:#8b949e;
+    margin-bottom:8px;
+  }
+
+  .metric-value {
+    font-size:28px;
+    font-weight:700;
+  }
+
+  .grid-2 {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    margin-bottom:20px;
+  }
+
+  @media(max-width:1000px){
+    .grid-2{
+      grid-template-columns:1fr;
+    }
+  }
+
+  .table-wrap {
+    overflow:auto;
+    border-radius:10px;
+    border:1px solid #30363d;
+  }
+
+  table {
+    width:100%;
+    border-collapse:collapse;
+    min-width:700px;
+  }
+
+  th {
+    background:#21262d;
+    color:#8b949e;
+    text-align:left;
+    padding:12px;
+    font-size:12px;
+    position:sticky;
+    top:0;
+  }
+
+  td {
+    padding:12px;
+    border-top:1px solid #30363d;
+    font-size:13px;
+  }
+
+  tr:hover td {
+    background:#1c2128;
+  }
+
+  .pill {
+    display:inline-block;
+    padding:5px 10px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:700;
+    background:#1f6feb22;
+    color:#58a6ff;
+  }
+
+  .section-title {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+  }
+
+  .section-title h2 {
+    font-size:18px;
+  }
+
+  .accordion {
+    margin-top:10px;
+  }
+
+  .accordion-item {
+    border:1px solid #30363d;
+    border-radius:10px;
+    margin-bottom:10px;
+    overflow:hidden;
+  }
+
+  .accordion-header {
+    background:#21262d;
+    padding:14px;
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  .accordion-body {
+    display:none;
+    padding:14px;
+    background:#161b22;
+  }
+
+  .accordion-item.active .accordion-body {
+    display:block;
+  }
+
+  .empty {
+    padding:30px;
+    text-align:center;
+    color:#8b949e;
+  }
+
+  canvas {
+    width:100% !important;
+    max-height:320px !important;
+  }
+
+  .footer-note {
+    margin-top:18px;
+    color:#8b949e;
+    font-size:12px;
+    text-align:right;
+  }
+</style>
+
+</head>
+
+<body>
+
+<div class="ctrl-bar">
+  <button class="load-btn" id="load-btn" onclick="loadAllRecords()">⬇ Load Dashboard</button>
+
+  <div class="prog-wrap">
+    <div class="prog-bar" id="prog-bar"></div>
+  </div>
+
+  <span class="status-txt" id="status-txt">
+    Press Load to fetch data from Manager
+  </span>
+</div>
+
+<div id="app"></div>
+
+<script>
+/* ══════════════════════════════════
+   postMessage helper — DO NOT MODIFY
+══════════════════════════════════ */
+function postMessageWithResponse(message) {
+  return new Promise((resolve, reject) => {
+    const requestId = crypto.randomUUID();
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      reject(new Error('Timeout — is this running inside Manager.io?'));
+    }, 15000);
+    function handler(event) {
+      if (event.data?.type?.endsWith('-response') && event.data?.requestId === requestId) {
+        clearTimeout(timer);
+        window.removeEventListener('message', handler);
+        resolve(event.data.body);
+      }
+    }
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ ...message, requestId }, '*');
+  });
+}
+
+/* ══════════════════════════════════
+   Pagination fetch helper
+══════════════════════════════════ */
+async function fetchAllPages(endpoint, onProgress) {
+  const allItems = [];
+  let nextToken = null;
+  let pageNum = 0;
+
+  do {
+
+    const path = nextToken
+      ? endpoint + '?PageSize=99999&next_page_token=' + encodeURIComponent(nextToken)
+      : endpoint + '?PageSize=99999';
+
+    const data = await postMessageWithResponse({
+      type:'api-request',
+      method:'GET',
+      path
+    });
+
+    const page = Array.isArray(data)
+      ? data
+      : (data.items || data.data || []);
+
+    allItems.push(...page);
+
+    nextToken =
+      data.next_page_token ||
+      data.nextPageToken ||
+      data._links?.next?.href ||
+      null;
+
+    pageNum++;
+
+    if(onProgress){
+      onProgress(endpoint, allItems.length, pageNum);
+    }
+
+    if(pageNum >= 1000) break;
+
+  } while(nextToken);
+
+  return allItems;
+}
+
+/* ══════════════════════════════════
+   getBankOrCashAccountBatch
+   DO NOT MODIFY
+══════════════════════════════════ */
+async function getBankOrCashAccountBatch(onProgress) {
+  const allItems = [];
+  let nextToken  = null;
+  let pageNum    = 0;
+  let apiTotal   = null;
+
+  do {
+    const path = nextToken
+      ? '/api4/bank-or-cash-account-batch?PageSize=99999&next_page_token=' + encodeURIComponent(nextToken)
+      : '/api4/bank-or-cash-account-batch?PageSize=99999';
+
+    const data = await postMessageWithResponse({ type: 'api-request', method: 'GET', path });
+
+    const page = Array.isArray(data) ? data : (data.items || data.data || []);
+    allItems.push(...page);
+
+    nextToken = data.next_page_token || data.nextPageToken || data._links?.next?.href || null;
+
+    if (apiTotal === null) {
+      apiTotal = data.totalCount ?? data.total ?? data.count ?? data._metadata?.totalCount ?? null;
+    }
+
+    pageNum++;
+    if (onProgress) onProgress(allItems.length, apiTotal, pageNum);
+    if (pageNum >= 1000) break;
+
+  } while (nextToken);
+
+  return allItems;
+}
+
+let GLOBAL_DATA = {};
+
+function fmt(v){
+  return '₦' + (Number(v || 0)).toLocaleString(undefined,{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+
+function formatDate(d){
+  if(!d) return '-';
+  return new Date(d).toLocaleDateString();
+}
+
+/* ══════════════════════════════════
+   Main loader
+══════════════════════════════════ */
+async function loadAllRecords() {
+
+  const btn = document.getElementById('load-btn');
+  const bar = document.getElementById('prog-bar');
+  const status = document.getElementById('status-txt');
+  const app = document.getElementById('app');
+
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  bar.style.width = '0%';
+  app.innerHTML = '';
+
+  try {
+
+    const bankAccounts = await getBankOrCashAccountBatch((loaded,total,page)=>{
+      status.textContent = `Loading bank accounts · Page ${page} · ${loaded.toLocaleString()} loaded`;
+      bar.style.width = Math.min(20, page * 5) + '%';
+    });
+
+    const receipts = await fetchAllPages('/api4/receipt-batch', ()=>{
+      status.textContent = 'Loading receipts...';
+      bar.style.width = '45%';
+    });
+
+    const journals = await fetchAllPages('/api4/journal-entry-batch', ()=>{
+      status.textContent = 'Loading journal entries...';
+      bar.style.width = '70%';
+    });
+
+    const customers = await fetchAllPages('/api4/customer-batch', ()=>{
+      status.textContent = 'Loading customers...';
+      bar.style.width = '90%';
+    });
+
+    GLOBAL_DATA = {
+      bankAccounts,
+      receipts,
+      journals,
+      customers
+    };
+
+    renderDashboard();
+
+    bar.style.width = '100%';
+
+    status.textContent =
+      `✓ Loaded ${receipts.length.toLocaleString()} receipts · ${customers.length.toLocaleString()} customers`;
+
+    btn.disabled = false;
+    btn.textContent = '↺ Reload';
+
+  } catch(err){
+
+    btn.disabled = false;
+    btn.textContent = '↺ Retry';
+
+    app.innerHTML = `
+      <div class="err-box">
+        ⚠ ${err.message}
+        <br><br>
+        Make sure this extension is running inside Manager.io.
+      </div>
+    `;
+  }
+}
+
+/* ══════════════════════════════════
+   Dashboard Renderer
+══════════════════════════════════ */
+function renderDashboard(){
+
+  const app = document.getElementById('app');
+
+  const customers = GLOBAL_DATA.customers || [];
+  const receipts = GLOBAL_DATA.receipts || [];
+  const banks = GLOBAL_DATA.bankAccounts || [];
+  const journals = GLOBAL_DATA.journals || [];
+
+  if(!customers.length){
+    app.innerHTML = `<div class="empty">No data available.</div>`;
+    return;
+  }
+
+  const bankMap = {};
+  banks.forEach(b=>{
+    bankMap[b?.item?.id || b?.key] = b?.item?.name || 'Unknown';
+  });
+
+  app.innerHTML = `
+    <div class="filters">
+
+      <div class="filter-card">
+        <label>Start Date</label>
+        <input type="date" id="startDate">
+      </div>
+
+      <div class="filter-card">
+        <label>End Date</label>
+        <input type="date" id="endDate">
+      </div>
+
+      <div class="filter-card">
+        <label>Credit Officer</label>
+        <select id="coFilter">
+          <option value="">All Credit Officers</option>
+        </select>
+      </div>
+
+      <div class="filter-card">
+        <label>Bank / Cash Account</label>
+        <select id="bankFilter">
+          <option value="">All Accounts</option>
+        </select>
+      </div>
+
+      <div class="filter-card" style="display:flex;align-items:end;gap:10px">
+        <button class="run-btn" id="runBtn">▶ Run Analysis</button>
+        <button class="export-btn" id="exportBtn">⬇ Export CSV</button>
+      </div>
+
+    </div>
+
+    <div id="dashboard-content"></div>
+
+    <div class="footer-note">
+      Built for Manager.io Extension Dashboard
+    </div>
+  `;
+
+  const coSet = new Set();
+
+  customers.forEach(c=>{
+    const co =
+      c?.item?.customFields2?.strings?.['50ca827c-17af-4164-bc29-453df6192f02'];
+
+    if(co) coSet.add(co);
+  });
+
+  receipts.forEach(r=>{
+    r?.item?.lines?.forEach(l=>{
+      const co =
+        l?.customFields2?.strings?.['50ca827c-17af-4164-bc29-453df6192f02'];
+
+      if(co) coSet.add(co);
+    });
+  });
+
+  const coFilter = document.getElementById('coFilter');
+
+  [...coSet]
+    .sort()
+    .forEach(co=>{
+      coFilter.innerHTML += `<option value="${co}">${co}</option>`;
+    });
+
+  const bankFilter = document.getElementById('bankFilter');
+
+  banks.forEach(b=>{
+    const id = b?.item?.id || b?.key;
+    const name = b?.item?.name || 'Unnamed';
+
+    bankFilter.innerHTML += `
+      <option value="${id}">${name}</option>
+    `;
+  });
+
+  document.getElementById('runBtn').onclick = runAnalysis;
+  document.getElementById('exportBtn').onclick = exportCSV;
+
+  runAnalysis();
+}
+
+/* ══════════════════════════════════
+   Analysis Engine
+══════════════════════════════════ */
+function runAnalysis(){
+
+  const content = document.getElementById('dashboard-content');
+
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  const coFilter = document.getElementById('coFilter').value;
+  const bankFilter = document.getElementById('bankFilter').value;
+
+  const customers = GLOBAL_DATA.customers || [];
+  const receipts = GLOBAL_DATA.receipts || [];
+  const banks = GLOBAL_DATA.bankAccounts || [];
+  const journals = GLOBAL_DATA.journals || [];
+
+  const customerMap = {};
+
+  customers.forEach(c=>{
+    customerMap[c?.key] = c;
+  });
+
+  const bankMap = {};
+
+  banks.forEach(b=>{
+    bankMap[b?.item?.id || b?.key] = b?.item?.name || 'Unknown';
+  });
+
+  function inDateRange(dateValue){
+
+    if(!dateValue) return true;
+
+    const d = new Date(dateValue);
+
+    if(startDate && d < new Date(startDate)) return false;
+
+    if(endDate){
+      const e = new Date(endDate);
+      e.setHours(23,59,59,999);
+      if(d > e) return false;
+    }
+
+    return true;
+  }
+
+  const coPerformance = {};
+  let totalReceipts = 0;
+
+  receipts.forEach(r=>{
+
+    const date = r?.item?.date;
+
+    if(!inDateRange(date)) return;
+
+    const bankId = r?.item?.receivedIn;
+
+    if(bankFilter && bankFilter !== bankId) return;
+
+    const lines = r?.item?.lines || [];
+
+    lines.forEach(line=>{
+
+      const co =
+        line?.customFields2?.strings?.['50ca827c-17af-4164-bc29-453df6192f02']
+        || 'Unassigned';
+
+      if(coFilter && coFilter !== co) return;
+
+      const amount = Number(line?.amount || 0);
+
+      if(!coPerformance[co]){
+        coPerformance[co] = {
+          total:0,
+          accounts:{}
+        };
+      }
+
+      coPerformance[co].total += amount;
+      totalReceipts += amount;
+
+      const accountName = bankMap[bankId] || 'Unknown Account';
+
+      coPerformance[co].accounts[accountName] =
+        (coPerformance[co].accounts[accountName] || 0) + amount;
+
+    });
+
+  });
+
+  /* Customer Aging */
+
+  const agingRows = [];
+
+  journals.forEach(j=>{
+
+    const date = j?.item?.date;
+
+    if(!inDateRange(date)) return;
+
+    const lines = j?.item?.lines || [];
+
+    lines.forEach(line=>{
+
+      const customerId = line?.accountsReceivableCustomer;
+
+      if(!customerId) return;
+
+      const customer = customerMap[customerId];
+
+      if(!customer) return;
+
+      const co =
+        customer?.item?.customFields2?.strings?.['50ca827c-17af-4164-bc29-453df6192f02']
+        || 'Unassigned';
+
+      if(coFilter && co !== coFilter) return;
+
+      const debit = Number(line?.debit || 0);
+      const credit = Number(line?.credit || 0);
+
+      const balance = debit - credit;
+
+      if(balance <= 0) return;
+
+      const ageDays =
+        Math.floor((new Date() - new Date(date)) / (1000*60*60*24));
+
+      agingRows.push({
+        customer: customer?.item?.name || 'Unknown',
+        co,
+        date,
+        ageDays,
+        balance
+      });
+
+    });
+
+  });
+
+  const agingTotals = {
+    current:0,
+    d30:0,
+    d60:0,
+    d90:0,
+    over90:0
+  };
+
+  agingRows.forEach(r=>{
+
+    if(r.ageDays <= 30){
+      agingTotals.current += r.balance;
+    }
+    else if(r.ageDays <= 60){
+      agingTotals.d30 += r.balance;
+    }
+    else if(r.ageDays <= 90){
+      agingTotals.d60 += r.balance;
+    }
+    else if(r.ageDays <= 120){
+      agingTotals.d90 += r.balance;
+    }
+    else{
+      agingTotals.over90 += r.balance;
+    }
+
+  });
+
+  const totalOutstanding =
+    agingTotals.current +
+    agingTotals.d30 +
+    agingTotals.d60 +
+    agingTotals.d90 +
+    agingTotals.over90;
+
+  content.innerHTML = `
+    <div class="summary-grid">
+
+      <div class="card">
+        <div class="metric-title">Total Outstanding</div>
+        <div class="metric-value">${fmt(totalOutstanding)}</div>
+      </div>
+
+      <div class="card">
+        <div class="metric-title">Total Receipts</div>
+        <div class="metric-value">${fmt(totalReceipts)}</div>
+      </div>
+
+      <div class="card">
+        <div class="metric-title">Customers</div>
+        <div class="metric-value">${customers.length.toLocaleString()}</div>
+      </div>
+
+      <div class="card">
+        <div class="metric-title">Credit Officers</div>
+        <div class="metric-value">${Object.keys(coPerformance).length}</div>
+      </div>
+
+    </div>
+
+    <div class="grid-2">
+
+      <div class="card">
+        <div class="section-title">
+          <h2>Customer Aging Analysis</h2>
+          <span class="pill">${agingRows.length.toLocaleString()} Records</span>
+        </div>
+
+        <canvas id="agingChart"></canvas>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>CO</th>
+                <th>Date</th>
+                <th>Age (Days)</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${
+                agingRows.length
+                ? agingRows.map(r=>`
+                  <tr>
+                    <td>${r.customer}</td>
+                    <td>${r.co}</td>
+                    <td>${formatDate(r.date)}</td>
+                    <td>${r.ageDays}</td>
+                    <td>${fmt(r.balance)}</td>
+                  </tr>
+                `).join('')
+                : `
+                  <tr>
+                    <td colspan="5" class="empty">No aging data found.</td>
+                  </tr>
+                `
+              }
+            </tbody>
+
+          </table>
+        </div>
+
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <h2>Credit Officer Performance</h2>
+          <span class="pill">${Object.keys(coPerformance).length} Officers</span>
+        </div>
+
+        <canvas id="coChart"></canvas>
+
+        <div class="accordion">
+          ${
+            Object.entries(coPerformance)
+            .sort((a,b)=>b[1].total - a[1].total)
+            .map(([co,data],i)=>`
+
+              <div class="accordion-item">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                  <div>
+                    <strong>${co}</strong>
+                  </div>
+
+                  <div>
+                    ${fmt(data.total)}
+                  </div>
+                </div>
+
+                <div class="accordion-body">
+
+                  <div class="table-wrap">
+
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Account</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+
+                        ${
+                          Object.entries(data.accounts)
+                          .map(([acc,val])=>`
+                            <tr>
+                              <td>${acc}</td>
+                              <td>${fmt(val)}</td>
+                            </tr>
+                          `).join('')
+                        }
+
+                      </tbody>
+
+                    </table>
+
+                  </div>
+
+                </div>
+              </div>
+
+            `).join('')
+          }
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  /* Charts */
+
+  const agingCtx = document.getElementById('agingChart');
+
+  if(agingCtx){
+
+    new Chart(agingCtx,{
+      type:'bar',
+      data:{
+        labels:[
+          '0-30',
+          '31-60',
+          '61-90',
+          '91-120',
+          '120+'
+        ],
+        datasets:[{
+          label:'Outstanding',
+          data:[
+            agingTotals.current,
+            agingTotals.d30,
+            agingTotals.d60,
+            agingTotals.d90,
+            agingTotals.over90
+          ],
+          backgroundColor:[
+            '#238636',
+            '#1f6feb',
+            '#d29922',
+            '#f85149',
+            '#8957e5'
+          ]
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{
+            labels:{
+              color:'#e6edf3'
+            }
+          }
+        },
+        scales:{
+          x:{
+            ticks:{ color:'#e6edf3' },
+            grid:{ color:'#30363d' }
+          },
+          y:{
+            ticks:{ color:'#e6edf3' },
+            grid:{ color:'#30363d' }
+          }
+        }
+      }
+    });
+
+  }
+
+  const coCtx = document.getElementById('coChart');
+
+  if(coCtx){
+
+    new Chart(coCtx,{
+      type:'doughnut',
+      data:{
+        labels:Object.keys(coPerformance),
+        datasets:[{
+          data:Object.values(coPerformance).map(v=>v.total),
+          backgroundColor:[
+            '#58a6ff',
+            '#3fb950',
+            '#d29922',
+            '#f85149',
+            '#bc8cff',
+            '#ff7b72',
+            '#7ee787'
+          ]
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{
+            labels:{
+              color:'#e6edf3'
+            }
+          }
+        }
+      }
+    });
+
+  }
+
+}
+
+/* ══════════════════════════════════
+   Accordion
+══════════════════════════════════ */
+function toggleAccordion(el){
+  el.parentElement.classList.toggle('active');
+}
+
+/* ══════════════════════════════════
+   Export CSV
+══════════════════════════════════ */
+function exportCSV(){
+
+  const rows = [];
+
+  rows.push([
+    'Customer',
+    'Credit Officer',
+    'Date',
+    'Age Days',
+    'Balance'
+  ]);
+
+  const trs = document.querySelectorAll('tbody tr');
+
+  trs.forEach(tr=>{
+
+    const tds = tr.querySelectorAll('td');
+
+    if(tds.length >= 5){
+
+      rows.push([
+        tds[0].innerText,
+        tds[1].innerText,
+        tds[2].innerText,
+        tds[3].innerText,
+        tds[4].innerText
+      ]);
+
+    }
+
+  });
+
+  const csv =
+    rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+
+  const blob = new Blob([csv],{
+    type:'text/csv;charset=utf-8;'
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download = 'customer-aging-analysis.csv';
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  document.body.removeChild(a);
+
+}
+</script>
+
+</body>
+</html>
